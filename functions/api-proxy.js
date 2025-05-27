@@ -1,4 +1,5 @@
 // Função serverless para proxy da API do LearnWorlds com suporte a múltiplas contas
+
 const axios = require('axios');
 const config = require('./config');
 
@@ -68,18 +69,14 @@ exports.handler = async function(event, context) {
     // Retornar resultado
     return {
       statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(result)
     };
   } catch (error) {
     console.error('Erro no proxy da API:', error);
     return {
       statusCode: error.response?.status || 500,
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         error: error.message,
         details: error.response?.data || 'Sem detalhes adicionais'
