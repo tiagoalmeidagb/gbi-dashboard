@@ -52,10 +52,9 @@ const fetchPayments = async (account, createdAfter, createdBefore) => {
   }
 };
 
-// Função para salvar dados em cache
+// Função para salvar dados em cache (exemplo)
 const saveDataToCache = async (data) => {
-  // Em um ambiente real, você salvaria em um banco de dados ou serviço de cache
-  // Para este exemplo, vamos apenas retornar os dados
+  // Em produção, salve em banco ou cache real
   return data;
 };
 
@@ -70,11 +69,9 @@ exports.handler = async function(event, context) {
       getPreviousYearData(config.international)
     ]);
 
-    // Combinar dados de ambas as contas
     const currentData = [...brCurrentData, ...intCurrentData];
     const previousYearData = [...brPreviousYearData, ...intPreviousYearData];
 
-    // Salvar dados em cache
     await saveDataToCache({
       current: {
         data: currentData,
@@ -89,7 +86,6 @@ exports.handler = async function(event, context) {
       lastUpdated: new Date().toISOString()
     });
 
-    // Retornar sucesso
     return {
       statusCode: 200,
       body: JSON.stringify({
