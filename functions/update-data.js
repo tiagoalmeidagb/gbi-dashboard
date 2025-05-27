@@ -1,36 +1,23 @@
-// Função serverless para atualização automática diária dos dados de múltiplas contas
-// Esta função será chamada por um webhook externo (ex: IFTTT, Zapier, cron-job.org)
-
 const axios = require('axios');
 const config = require('./config');
 
 // Função para obter dados do mês atual de uma conta específica
 const getCurrentMonthData = async (account) => {
-  // Calcular datas do mês atual
   const now = new Date();
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  
-  // Formatar datas para a API
   const createdAfter = firstDay.toISOString().split('T')[0];
   const createdBefore = lastDay.toISOString().split('T')[0];
-  
-  // Buscar pagamentos
   return fetchPayments(account, createdAfter, createdBefore);
 };
 
 // Função para obter dados do mesmo mês do ano anterior de uma conta específica
 const getPreviousYearData = async (account) => {
-  // Calcular datas do mesmo mês do ano anterior
   const now = new Date();
   const firstDay = new Date(now.getFullYear() - 1, now.getMonth(), 1);
   const lastDay = new Date(now.getFullYear() - 1, now.getMonth() + 1, 0);
-  
-  // Formatar datas para a API
   const createdAfter = firstDay.toISOString().split('T')[0];
   const createdBefore = lastDay.toISOString().split('T')[0];
-  
-  // Buscar pagamentos
   return fetchPayments(account, createdAfter, createdBefore);
 };
 
@@ -51,14 +38,13 @@ const fetchPayments = async (account, createdAfter, createdBefore) => {
         created_before: createdBefore
       }
     });
-    
-    // Adicionar informação de origem e moeda aos dados
+
     const enhancedData = response.data.map(payment => ({
       ...payment,
       source: account === config.br ? 'BR' : 'INT',
       currency: account.currency
     }));
-    
+
     return enhancedData;
   } catch (error) {
     console.error(`Erro ao buscar pagamentos da conta ${account === config.br ? 'BR' : 'INT'}:`, error);
@@ -76,12 +62,6 @@ const saveDataToCache = async (data) => {
 // Handler principal
 exports.handler = async function(event, context) {
   try {
-    // Verificar se a requisição é autorizada (você pode implementar uma chave de API)
-    // const apiKey = event.headers['x-api-key'];
-    // if (apiKey !== process.env.UPDATE_API_KEY) {
-    //   return { statusCode: 401, body: JSON.stringify({ error: 'Não autorizado' }) };
-    // }
-    
     // Buscar dados atuais e do ano anterior para ambas as contas
     const [brCurrentData, brPreviousYearData, intCurrentData, intPreviousYearData] = await Promise.all([
       getCurrentMonthData(config.br),
@@ -89,11 +69,11 @@ exports.handler = async function(event, context) {
       getCurrentMonthData(config.international),
       getPreviousYearData(config.international)
     ]);
-    
+
     // Combinar dados de ambas as contas
     const currentData = [...brCurrentData, ...intCurrentData];
     const previousYearData = [...brPreviousYearData, ...intPreviousYearData];
-    
+
     // Salvar dados em cache
     await saveDataToCache({
       current: {
@@ -108,7 +88,7 @@ exports.handler = async function(event, context) {
       },
       lastUpdated: new Date().toISOString()
     });
-    
+
     // Retornar sucesso
     return {
       statusCode: 200,
