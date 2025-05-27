@@ -1,5 +1,4 @@
 // Configuração para múltiplas contas do LearnWorlds
-// Este arquivo contém as configurações para integração com as APIs do LearnWorlds (BR e Internacional)
 
 // Configurações da API LearnWorlds Brasil
 const BR_API_SCHOOL_ID = process.env.BR_API_SCHOOL_ID || 'seu-school-id-br';
