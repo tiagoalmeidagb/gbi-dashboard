@@ -1,6 +1,4 @@
 // Função serverless para proxy da API do LearnWorlds com suporte a múltiplas contas
-// Este arquivo gerencia as chamadas para as APIs do LearnWorlds (BR e Internacional)
-
 const axios = require('axios');
 const config = require('./config');
 
@@ -21,14 +19,35 @@ async function fetchPaymentsFromAccount(account, createdAfter, createdBefore) {
         created_before: createdBefore
       }
     });
-    
+
+    // Log para depuração (opcional, remova depois de testar)
+    console.log('Resposta da API:', response.data);
+
+    let paymentsArray = [];
+
+    // Verifica se response.data já é um array
+    if (Array.isArray(response.data)) {
+      paymentsArray = response.data;
+    }
+    // Se response.data.data for array (ex: { data: [...] })
+    else if (response.data && Array.isArray(response.data.data)) {
+      paymentsArray = response.data.data;
+    }
+    // Se response.data for objeto, transforma em array de valores
+    else if (response.data && typeof response.data === 'object') {
+      paymentsArray = Object.values(response.data);
+    } else {
+      // Não encontrou array, retorna vazio
+      paymentsArray = [];
+    }
+
     // Adicionar informação de origem e moeda aos dados
-    const enhancedData = response.data.map(payment => ({
+    const enhancedData = paymentsArray.map(payment => ({
       ...payment,
       source: account === config.br ? 'BR' : 'INT',
       currency: account.currency
     }));
-    
+
     return enhancedData;
   } catch (error) {
     console.error(`Erro ao buscar pagamentos da conta ${account === config.br ? 'BR' : 'INT'}:`, error);
@@ -42,9 +61,9 @@ exports.handler = async function(event, context) {
     // Obter parâmetros da requisição
     const params = event.queryStringParameters || {};
     const { created_after, created_before, account } = params;
-    
+
     let result;
-    
+
     // Determinar qual(is) conta(s) consultar
     if (account === 'br') {
       // Apenas conta BR
@@ -60,7 +79,7 @@ exports.handler = async function(event, context) {
         fetchPaymentsFromAccount(config.br, created_after, created_before),
         fetchPaymentsFromAccount(config.international, created_after, created_before)
       ]);
-      
+
       // Combinar os resultados
       result = {
         data: [...brData, ...intData],
@@ -68,7 +87,7 @@ exports.handler = async function(event, context) {
         international: { data: intData, source: 'INT' }
       };
     }
-    
+
     // Retornar resultado
     return {
       statusCode: 200,
@@ -79,7 +98,7 @@ exports.handler = async function(event, context) {
     };
   } catch (error) {
     console.error('Erro no proxy da API:', error);
-    
+
     return {
       statusCode: error.response?.status || 500,
       headers: {
