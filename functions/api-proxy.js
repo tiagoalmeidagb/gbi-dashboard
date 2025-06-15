@@ -1,14 +1,18 @@
 const axios = require('axios');
 
-// Pegue as variáveis do ambiente
-const LW_BR_CLIENT_ID = process.env.LW_BR_CLIENT_ID;
-const LW_BR_ACCESS_TOKEN = process.env.LW_BR_ACCESS_TOKEN;
-// Se usar internacional, adicione também as variáveis dela
-
-const API_BASE_URL = 'https://institute.graciebarra.com.br/admin/api/v2';
+// Configuração das contas (pode estar em config.js)
+const config = {
+  br: {
+    schoolId: process.env.LW_BR_CLIENT_ID,
+    token: process.env.LW_BR_ACCESS_TOKEN,
+    baseUrl: 'https://institute.graciebarra.com.br/admin/api/v2',
+    currency: 'BRL'
+  }
+  // Adicione internacional se precisar
+};
 
 // Função para obter pagamentos de uma conta específica
-async function fetchPaymentsFromAccount(account, createdAfter, createdBefore) {
+async function fetchPaymentsFromAccount(account, createdAfter, createdBefore, source) {
   try {
     const response = await axios({
       method: 'GET',
@@ -38,27 +42,16 @@ async function fetchPaymentsFromAccount(account, createdAfter, createdBefore) {
 
     const enhancedData = paymentsArray.map(payment => ({
       ...payment,
-      source: account === config.br ? 'BR' : 'INT',
+      source: source,
       currency: account.currency
     }));
 
     return enhancedData;
   } catch (error) {
-    console.error(`Erro ao buscar pagamentos da conta ${account === config.br ? 'BR' : 'INT'}:`, error);
+    console.error(`Erro ao buscar pagamentos da conta ${source}:`, error.response?.data || error.message);
     throw error;
   }
 }
-
-// Configuração das contas (pode estar em config.js)
-const config = {
-  br: {
-    schoolId: LW_BR_CLIENT_ID,
-    token: LW_BR_ACCESS_TOKEN,
-    baseUrl: API_BASE_URL,
-    currency: 'BRL'
-  }
-  // Adicione internacional se precisar
-};
 
 // Handler principal
 exports.handler = async function(event, context) {
@@ -69,7 +62,7 @@ exports.handler = async function(event, context) {
     let result;
 
     if (account === 'br' || !account) {
-      const brData = await fetchPaymentsFromAccount(config.br, created_after, created_before);
+      const brData = await fetchPaymentsFromAccount(config.br, created_after, created_before, 'BR');
       result = { data: brData, source: 'BR' };
     } else {
       // Adicione lógica para internacional se necessário
