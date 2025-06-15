@@ -11,6 +11,12 @@ const config = {
   // Adicione internacional se necessário
 };
 
+// Função para obter o último dia do mês
+function lastDayOfMonth(year, month) {
+  // month: 1-12
+  return new Date(year, month, 0).getDate();
+}
+
 // Função para obter pagamentos de uma conta específica
 async function fetchPaymentsFromAccount(account, createdAfter, createdBefore, source) {
   try {
@@ -23,7 +29,7 @@ async function fetchPaymentsFromAccount(account, createdAfter, createdBefore, so
         'Authorization': `Bearer ${account.token}`
       },
       params: {
-        items_per_page: 200,
+        items_per_page: 200, // Limite máximo aceito pela API
         created_after: createdAfter,
         created_before: createdBefore
       }
@@ -58,16 +64,19 @@ exports.handler = async function(event, context) {
   try {
     // Datas para mês atual e mesmo mês do ano anterior
     const now = new Date();
-    const currentMonth = now.getMonth() + 1;
+    const currentMonth = now.getMonth() + 1; // janeiro = 1
     const currentYear = now.getFullYear();
     const previousYear = currentYear - 1;
 
-    // Formatos YYYY-MM-DD
+    // Função para padronizar mês/dia
     const pad = n => String(n).padStart(2, '0');
+    const endCurrentDay = lastDayOfMonth(currentYear, currentMonth);
+    const endPreviousDay = lastDayOfMonth(previousYear, currentMonth);
+
     const startCurrent = `${currentYear}-${pad(currentMonth)}-01`;
-    const endCurrent = `${currentYear}-${pad(currentMonth)}-31`;
+    const endCurrent = `${currentYear}-${pad(currentMonth)}-${pad(endCurrentDay)}`;
     const startPrevious = `${previousYear}-${pad(currentMonth)}-01`;
-    const endPrevious = `${previousYear}-${pad(currentMonth)}-31`;
+    const endPrevious = `${previousYear}-${pad(currentMonth)}-${pad(endPreviousDay)}`;
 
     // Busca pagamentos mês atual e anterior
     const currentBR = await fetchPaymentsFromAccount(config.br, startCurrent, endCurrent, 'BR');
