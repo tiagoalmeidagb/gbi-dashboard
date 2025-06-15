@@ -1,334 +1,182 @@
-document.addEventListener('DOMContentLoaded', function() {
-  // Elementos do DOM
-  const loginScreen = document.getElementById('login-screen');
-  const dashboard = document.getElementById('dashboard');
-  const loginForm = document.getElementById('login-form');
-  const loginError = document.getElementById('login-error');
-  const loadingOverlay = document.getElementById('loading-overlay');
-  const refreshButton = document.getElementById('refresh-button');
-  const currentMonthElement = document.getElementById('current-month');
-  const lastUpdatedElement = document.getElementById('last-updated');
+// Funções utilitárias
+function showLoading() {
+  document.getElementById('loading-overlay').classList.remove('hidden');
+}
+function hideLoading() {
+  document.getElementById('loading-overlay').classList.add('hidden');
+}
+function showError(msg) {
+  const el = document.getElementById('login-error');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+function hideError() {
+  document.getElementById('login-error').classList.add('hidden');
+}
 
-  // Elementos de métricas
-  const brCurrentElement = document.getElementById('br-current');
-  const brPreviousElement = document.getElementById('br-previous');
-  const brCurrentLabelElement = document.getElementById('br-current-label');
-  const brPreviousLabelElement = document.getElementById('br-previous-label');
-
-  const intCurrentElement = document.getElementById('int-current');
-  const intPreviousElement = document.getElementById('int-previous');
-  const intCurrentLabelElement = document.getElementById('int-current-label');
-  const intPreviousLabelElement = document.getElementById('int-previous-label');
-
-  const totalCurrentElement = document.getElementById('total-current');
-  const totalPreviousElement = document.getElementById('total-previous');
-  const totalCurrentLabelElement = document.getElementById('total-current-label');
-  const totalPreviousLabelElement = document.getElementById('total-previous-label');
-
-  // Elementos de gráficos
-  const comparisonChartElement = document.getElementById('comparison-chart');
-  const productRevenueChartElement = document.getElementById('product-revenue-chart');
-  const comparisonChartTitleElement = document.getElementById('comparison-chart-title');
-
-  // Elemento de metas
-  const productTargetsElement = document.getElementById('product-targets');
-
-  // Obter o nome do mês atual em português
-  const currentDate = new Date();
-  const currentMonth = currentDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-  const previousYearMonth = new Date(currentDate.setFullYear(currentDate.getFullYear() - 1))
-    .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-
-  // Função para formatar valores monetários
-  function formatCurrency(value, currency = 'BRL') {
-    const formatter = new Intl.NumberFormat(currency === 'USD' ? 'en-US' : 'pt-BR', {
-      style: 'currency',
-      currency: currency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    });
-    return formatter.format(value);
+// Login simples (ajuste a senha conforme necessário)
+const CORRECT_PASSWORD = 'suasenha';
+document.getElementById('login-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const pwd = document.getElementById('password').value;
+  if (pwd === CORRECT_PASSWORD) {
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('dashboard').classList.remove('hidden');
+    fetchRealData();
+  } else {
+    showError('Senha incorreta. Tente novamente.');
   }
-
-  // Função para calcular a variação percentual
-  function calculatePercentageChange(current, previous) {
-    if (previous === 0) return 100;
-    return ((current - previous) / previous) * 100;
-  }
-
-  // Função para agrupar pagamentos por produto
-  function groupPaymentsByProduct(payments) {
-    if (!payments || !Array.isArray(payments)) {
-      return {};
-    }
-    const productRevenue = {};
-    payments.forEach(payment => {
-      if (payment.product && payment.product.title) {
-        const productName = payment.product.title;
-        const amount = parseFloat(payment.amount);
-        if (productRevenue[productName]) {
-          productRevenue[productName] += amount;
-        } else {
-          productRevenue[productName] = amount;
-        }
-      }
-    });
-    return productRevenue;
-  }
-
-  // Função para calcular metas de vendas por produto (20% acima do ano anterior)
-  function calculateProductTargets(currentProducts, previousYearProducts) {
-    const targets = {};
-    Object.keys(previousYearProducts).forEach(productName => {
-      const previousValue = previousYearProducts[productName];
-      const targetValue = previousValue * 1.2; // 20% acima
-      const currentValue = currentProducts[productName] || 0;
-      targets[productName] = {
-        previous: previousValue,
-        target: targetValue,
-        current: currentValue,
-        progress: currentValue / targetValue * 100
-      };
-    });
-    Object.keys(currentProducts).forEach(productName => {
-      if (!targets[productName]) {
-        const currentValue = currentProducts[productName];
-        targets[productName] = {
-          previous: 0,
-          target: 0,
-          current: currentValue,
-          progress: 100
-        };
-      }
-    });
-    return targets;
-  }
-
-  // Função para buscar dados reais da API serverless
-  async function fetchRealData() {
-    try {
-      const response = await fetch('/.netlify/functions/api-proxy');
-      if (!response.ok) throw new Error('Erro ao buscar dados');
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Falha ao carregar dados reais:', error);
-      return null;
-    }
-  }
-
-  // Função para atualizar as métricas principais
-  function updateMetrics(data) {
-    // Brasil (BRL)
-    brCurrentElement.textContent = formatCurrency(data.current.br.total, 'BRL');
-    brPreviousElement.textContent = formatCurrency(data.previous.br.total, 'BRL');
-    brCurrentLabelElement.textContent = `Faturamento ${currentMonth}`;
-    brPreviousLabelElement.textContent = `Faturamento ${previousYearMonth}`;
-
-    // Internacional (USD)
-    intCurrentElement.textContent = formatCurrency(data.current.international.total, 'USD');
-    intPreviousElement.textContent = formatCurrency(data.previous.international.total, 'USD');
-    intCurrentLabelElement.textContent = `Faturamento ${currentMonth}`;
-    intPreviousLabelElement.textContent = `Faturamento ${previousYearMonth}`;
-
-    // Consolidado
-    totalCurrentElement.textContent = formatCurrency(data.current.total, 'BRL');
-    totalPreviousElement.textContent = formatCurrency(data.previous.total, 'BRL');
-    totalCurrentLabelElement.textContent = `Faturamento ${currentMonth}`;
-    totalPreviousLabelElement.textContent = `Faturamento ${previousYearMonth}`;
-  }
-
-  // Função para criar o gráfico de comparação
-  function createComparisonChart(data) {
-    const ctx = comparisonChartElement.getContext('2d');
-    if (window.comparisonChartInstance) {
-      window.comparisonChartInstance.destroy();
-    }
-    // Preparar dados
-    const currentProductsData = groupPaymentsByProduct(data.current.data);
-    const previousProductsData = groupPaymentsByProduct(data.previous.data);
-    const labels = Object.keys(currentProductsData);
-    const currentData = labels.map(product => currentProductsData[product]);
-    const previousData = labels.map(product => previousProductsData[product] || 0);
-
-    // Atualizar título
-    comparisonChartTitleElement.textContent = `Vendas: ${currentMonth} vs ${previousYearMonth}`;
-
-    window.comparisonChartInstance = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            label: currentMonth,
-            data: currentData,
-            backgroundColor: 'rgba(59, 130, 246, 0.8)',
-            borderColor: 'rgba(59, 130, 246, 1)',
-            borderWidth: 1
-          },
-          {
-            label: previousYearMonth,
-            data: previousData,
-            backgroundColor: 'rgba(203, 213, 225, 0.8)',
-            borderColor: 'rgba(203, 213, 225, 1)',
-            borderWidth: 1
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              callback: function(value) {
-                return formatCurrency(value).replace(/[^0-9]/g, '');
-              }
-            }
-          }
-        },
-        plugins: {
-          tooltip: {
-            callbacks: {
-              label: function(context) {
-                return context.dataset.label + ': ' + formatCurrency(context.raw);
-              }
-            }
-          }
-        }
-      }
-    });
-  }
-
-  // Função para criar o gráfico de receita por produto
-  function createProductRevenueChart(data) {
-    const ctx = productRevenueChartElement.getContext('2d');
-    if (window.productRevenueChartInstance) {
-      window.productRevenueChartInstance.destroy();
-    }
-    // Preparar dados
-    const productData = groupPaymentsByProduct(data.current.data);
-    const labels = Object.keys(productData);
-    const values = labels.map(product => productData[product]);
-    window.productRevenueChartInstance = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            label: 'Receita',
-            data: values,
-            backgroundColor: 'rgba(59, 130, 246, 0.8)',
-            borderColor: 'rgba(59, 130, 246, 1)',
-            borderWidth: 1
-          }
-        ]
-      },
-      options: {
-        indexAxis: 'y',
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: {
-            beginAtZero: true,
-            ticks: {
-              callback: function(value) {
-                return formatCurrency(value).replace(/[^0-9]/g, '');
-              }
-            }
-          }
-        },
-        plugins: {
-          tooltip: {
-            callbacks: {
-              label: function(context) {
-                return context.dataset.label + ': ' + formatCurrency(context.raw);
-              }
-            }
-          }
-        }
-      }
-    });
-  }
-
-  // Função para atualizar a seção de metas
-  function updateProductTargets(data) {
-    productTargetsElement.innerHTML = '';
-    const currentProductsData = groupPaymentsByProduct(data.current.data);
-    const previousProductsData = groupPaymentsByProduct(data.previous.data);
-    const targets = calculateProductTargets(currentProductsData, previousProductsData);
-    Object.keys(targets).forEach(product => {
-      const { current, previous, target, progress } = targets[product];
-      let progressColorClass = 'bg-yellow-500';
-      if (progress >= 100) {
-        progressColorClass = 'bg-green-500';
-      } else if (progress >= 70) {
-        progressColorClass = 'bg-blue-500';
-      } else if (progress < 50) {
-        progressColorClass = 'bg-red-500';
-      }
-      const productElement = document.createElement('div');
-      productElement.className = 'mb-4';
-      productElement.innerHTML = `
-        <div class="flex justify-between items-center mb-1">
-          <span class="font-medium">${product}</span>
-          <span class="text-sm">${Math.round(progress)}%</span>
-        </div>
-        <div class="progress-bar mb-1">
-          <div class="progress-bar-fill ${progressColorClass}" style="width: ${progress}%"></div>
-        </div>
-        <div class="flex justify-between text-sm text-gray-500">
-          <span>Atual: ${formatCurrency(current)}</span>
-          <span>Meta: ${formatCurrency(target)}</span>
-        </div>
-      `;
-      productTargetsElement.appendChild(productElement);
-    });
-  }
-
-  // Função para carregar dados do dashboard (agora busca dados reais)
-  async function loadDashboardData() {
-    loadingOverlay.classList.remove('hidden');
-    const data = await fetchRealData();
-    if (data && data.current && data.previous) {
-      updateMetrics(data);
-      createComparisonChart(data);
-      createProductRevenueChart(data);
-      updateProductTargets(data);
-      currentMonthElement.textContent = currentMonth;
-      lastUpdatedElement.textContent = `Atualizado em: ${new Date().toLocaleString('pt-BR')}`;
-    } else {
-      alert('Não foi possível carregar dados reais do servidor.');
-    }
-    loadingOverlay.classList.add('hidden');
-  }
-
-  // Função para autenticar usuário
-  function authenticateUser(password) {
-    // Simulação de autenticação (senha fixa para demonstração)
-    return password === 'demo123';
-  }
-
-  // Event Listeners
-
-  // Login
-  loginForm.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const password = document.getElementById('password').value;
-    if (authenticateUser(password)) {
-      loginScreen.classList.add('hidden');
-      dashboard.classList.remove('hidden');
-      loadDashboardData();
-    } else {
-      loginError.classList.remove('hidden');
-    }
-  });
-
-  // Botão de atualização
-  refreshButton.addEventListener('click', function() {
-    loadDashboardData();
-  });
-
-  // Inicialização pode ser feita após login
 });
+
+// Atualiza as métricas principais
+function updateMainMetrics(data) {
+  // Atualiza Brasil
+  document.getElementById('br-current').textContent = `R$ ${formatNumber(data.current.br.total)}`;
+  document.getElementById('br-previous').textContent = `R$ ${formatNumber(data.previous.br.total)}`;
+  // Atualiza Internacional (se houver)
+  document.getElementById('int-current').textContent = `$ ${formatNumber(data.current.international.total)}`;
+  document.getElementById('int-previous').textContent = `$ ${formatNumber(data.previous.international.total)}`;
+  // Atualiza Consolidado
+  document.getElementById('total-current').textContent = `R$ ${formatNumber(data.current.total)}`;
+  document.getElementById('total-previous').textContent = `R$ ${formatNumber(data.previous.total)}`;
+}
+
+// Formata número para moeda
+function formatNumber(num) {
+  return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Atualiza os gráficos
+function updateCharts(data) {
+  // Gráfico de comparação mês atual vs ano anterior
+  const ctx1 = document.getElementById('comparison-chart').getContext('2d');
+  if (window.comparisonChart) window.comparisonChart.destroy();
+  window.comparisonChart = new Chart(ctx1, {
+    type: 'bar',
+    data: {
+      labels: ['Brasil', 'Internacional', 'Consolidado'],
+      datasets: [
+        {
+          label: 'Mês Atual',
+          data: [
+            data.current.br.total,
+            data.current.international.total,
+            data.current.total
+          ],
+          backgroundColor: '#2563eb'
+        },
+        {
+          label: 'Ano Anterior',
+          data: [
+            data.previous.br.total,
+            data.previous.international.total,
+            data.previous.total
+          ],
+          backgroundColor: '#60a5fa'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'top' } }
+    }
+  });
+
+  // Gráfico de receita por produto (mês atual)
+  const productTotals = {};
+  data.current.data.forEach(p => {
+    const name = p.product_name || p.product || 'Outro';
+    productTotals[name] = (productTotals[name] || 0) + (parseFloat(p.amount) || 0);
+  });
+  const ctx2 = document.getElementById('product-revenue-chart').getContext('2d');
+  if (window.productRevenueChart) window.productRevenueChart.destroy();
+  window.productRevenueChart = new Chart(ctx2, {
+    type: 'pie',
+    data: {
+      labels: Object.keys(productTotals),
+      datasets: [{
+        data: Object.values(productTotals),
+        backgroundColor: [
+          '#2563eb', '#60a5fa', '#f59e42', '#10b981', '#f43f5e', '#a78bfa', '#fbbf24'
+        ]
+      }]
+    },
+    options: { responsive: true }
+  });
+}
+
+// Atualiza metas por produto (exemplo simples)
+function updateProductTargets(data) {
+  const container = document.getElementById('product-targets');
+  container.innerHTML = '';
+  // Exemplo: meta fictícia de R$ 10.000 por produto
+  const meta = 10000;
+  const productTotals = {};
+  data.current.data.forEach(p => {
+    const name = p.product_name || p.product || 'Outro';
+    productTotals[name] = (productTotals[name] || 0) + (parseFloat(p.amount) || 0);
+  });
+  Object.entries(productTotals).forEach(([name, total]) => {
+    const percent = Math.min(100, (total / meta) * 100);
+    container.innerHTML += `
+      <div>
+        <div class="flex justify-between mb-1">
+          <span class="font-semibold">${name}</span>
+          <span>${formatNumber(total)} / ${formatNumber(meta)}</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-3 mb-4">
+          <div class="bg-blue-600 h-3 rounded-full" style="width: ${percent}%"></div>
+        </div>
+      </div>
+    `;
+  });
+}
+
+// Busca os dados reais do backend
+async function fetchRealData() {
+  try {
+    showLoading();
+    const response = await fetch('/.netlify/functions/api-proxy');
+    if (!response.ok) throw new Error('Erro ao buscar dados do servidor');
+    const data = await response.json();
+
+    updateMainMetrics(data);
+    updateCharts(data);
+    updateProductTargets(data);
+
+    hideLoading();
+    hideError();
+  } catch (err) {
+    hideLoading();
+    showError('Não foi possível carregar dados reais do servidor.');
+    console.error(err);
+  }
+}
+
+// Atualiza mês/ano no topo
+function updateHeaderLabels() {
+  const now = new Date();
+  const months = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ];
+  const currentMonth = months[now.getMonth()];
+  const currentYear = now.getFullYear();
+  const previousYear = currentYear - 1;
+
+  document.getElementById('br-current-label').textContent = `Faturamento ${currentMonth} ${currentYear}`;
+  document.getElementById('br-previous-label').textContent = `Faturamento ${currentMonth} ${previousYear}`;
+  document.getElementById('int-current-label').textContent = `Faturamento ${currentMonth} ${currentYear}`;
+  document.getElementById('int-previous-label').textContent = `Faturamento ${currentMonth} ${previousYear}`;
+  document.getElementById('total-current-label').textContent = `Faturamento ${currentMonth} ${currentYear}`;
+  document.getElementById('total-previous-label').textContent = `Faturamento ${currentMonth} ${previousYear}`;
+  document.getElementById('comparison-chart-title').textContent = `Vendas: ${currentMonth} ${currentYear} vs ${previousYear}`;
+}
+
+updateHeaderLabels();
+
+// Botão de refresh
+document.getElementById('refresh-button').addEventListener('click', fetchRealData);
+
+// Se quiser carregar automaticamente ao abrir (sem login), descomente:
+// fetchRealData();
