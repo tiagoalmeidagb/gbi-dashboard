@@ -23,7 +23,7 @@ async function fetchPaymentsFromAccount(account, createdAfter, createdBefore, so
         'Authorization': `Bearer ${account.token}`
       },
       params: {
-        items_per_page: 1000,
+        items_per_page: 200,
         created_after: createdAfter,
         created_before: createdBefore
       }
