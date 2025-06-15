@@ -15,7 +15,7 @@ function hideError() {
 }
 
 // Login simples (ajuste a senha conforme necessário)
-const CORRECT_PASSWORD = 'suasenha';
+const CORRECT_PASSWORD = 'demo123';
 document.getElementById('login-form').addEventListener('submit', function(e) {
   e.preventDefault();
   const pwd = document.getElementById('password').value;
