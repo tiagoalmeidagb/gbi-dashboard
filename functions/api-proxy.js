@@ -1,6 +1,11 @@
-// Função serverless para proxy da API do LearnWorlds com suporte a múltiplas contas
 const axios = require('axios');
-const config = require('./config');
+
+// Pegue as variáveis do ambiente
+const LW_BR_CLIENT_ID = process.env.LW_BR_CLIENT_ID;
+const LW_BR_ACCESS_TOKEN = process.env.LW_BR_ACCESS_TOKEN;
+// Se usar internacional, adicione também as variáveis dela
+
+const API_BASE_URL = 'https://institute.graciebarra.com.br/admin/api/v2';
 
 // Função para obter pagamentos de uma conta específica
 async function fetchPaymentsFromAccount(account, createdAfter, createdBefore) {
@@ -20,28 +25,17 @@ async function fetchPaymentsFromAccount(account, createdAfter, createdBefore) {
       }
     });
 
-    // Log para depuração (opcional, remova depois de testar)
-    console.log('Resposta da API:', response.data);
-
     let paymentsArray = [];
-
-    // Verifica se response.data já é um array
     if (Array.isArray(response.data)) {
       paymentsArray = response.data;
-    }
-    // Se response.data.data for array (ex: { data: [...] })
-    else if (response.data && Array.isArray(response.data.data)) {
+    } else if (response.data && Array.isArray(response.data.data)) {
       paymentsArray = response.data.data;
-    }
-    // Se response.data for objeto, transforma em array de valores
-    else if (response.data && typeof response.data === 'object') {
+    } else if (response.data && typeof response.data === 'object') {
       paymentsArray = Object.values(response.data);
     } else {
-      // Não encontrou array, retorna vazio
       paymentsArray = [];
     }
 
-    // Adicionar informação de origem e moeda aos dados
     const enhancedData = paymentsArray.map(payment => ({
       ...payment,
       source: account === config.br ? 'BR' : 'INT',
@@ -55,40 +49,33 @@ async function fetchPaymentsFromAccount(account, createdAfter, createdBefore) {
   }
 }
 
+// Configuração das contas (pode estar em config.js)
+const config = {
+  br: {
+    schoolId: LW_BR_CLIENT_ID,
+    token: LW_BR_ACCESS_TOKEN,
+    baseUrl: API_BASE_URL,
+    currency: 'BRL'
+  }
+  // Adicione internacional se precisar
+};
+
 // Handler principal
 exports.handler = async function(event, context) {
   try {
-    // Obter parâmetros da requisição
     const params = event.queryStringParameters || {};
     const { created_after, created_before, account } = params;
 
     let result;
 
-    // Determinar qual(is) conta(s) consultar
-    if (account === 'br') {
-      // Apenas conta BR
+    if (account === 'br' || !account) {
       const brData = await fetchPaymentsFromAccount(config.br, created_after, created_before);
       result = { data: brData, source: 'BR' };
-    } else if (account === 'international') {
-      // Apenas conta Internacional
-      const intData = await fetchPaymentsFromAccount(config.international, created_after, created_before);
-      result = { data: intData, source: 'INT' };
     } else {
-      // Ambas as contas (padrão)
-      const [brData, intData] = await Promise.all([
-        fetchPaymentsFromAccount(config.br, created_after, created_before),
-        fetchPaymentsFromAccount(config.international, created_after, created_before)
-      ]);
-
-      // Combinar os resultados
-      result = {
-        data: [...brData, ...intData],
-        br: { data: brData, source: 'BR' },
-        international: { data: intData, source: 'INT' }
-      };
+      // Adicione lógica para internacional se necessário
+      result = { data: [], source: 'INT' };
     }
 
-    // Retornar resultado
     return {
       statusCode: 200,
       headers: {
